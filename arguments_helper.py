@@ -2,7 +2,7 @@ import configparser
 
 from error_helper import exit_with_error
 from file_helper import file_exists
-from constants import ANALYSIS_ORF, ARGUMENTS, CONFIG_DIR, ANALYSIS_TYPES, FASTA_INPUT_FILE, MIN_ORF_LENGTH, MAX_ORF_LENGTH
+from constants import ANALYSIS_ORF, ARGUMENTS, CONFIG_DIR, FASTA_OUTPUT_FILE, FASTA_INPUT_FILE, MIN_ORF_LENGTH, MAX_ORF_LENGTH
 
 def create_config(config_file, analysis):
     if not file_exists(CONFIG_DIR + config_file):
@@ -10,9 +10,9 @@ def create_config(config_file, analysis):
 
     config = configparser.ConfigParser()
     config.read(CONFIG_DIR + config_file)
-    exercise_config = config[analysis]
+    analysis_config = config[analysis]
 
-    return exercise_config
+    return analysis_config
 
 def handle_arguments(analysis, args):
     arguments = ARGUMENTS
@@ -33,6 +33,7 @@ def print_curr_arguments(analysis, arguments):
 
     if analysis == ANALYSIS_ORF:
         print('\t- %s : %s' % (FASTA_INPUT_FILE, arguments[FASTA_INPUT_FILE]))
+        print('\t- %s : %s' % (FASTA_OUTPUT_FILE, arguments[FASTA_OUTPUT_FILE]))
         print('\t- %s : %s' % (MIN_ORF_LENGTH, arguments[MIN_ORF_LENGTH]))
         print('\t- %s : %s' % (MAX_ORF_LENGTH, arguments[MAX_ORF_LENGTH]))
     

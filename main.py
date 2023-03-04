@@ -3,8 +3,9 @@ import time
 
 from arguments_helper import print_curr_arguments, handle_arguments
 from file_helper import file_exists, valid_fasta_file, generate_output_path
-from constants import ANALYSIS_ORF, CONFIG_FILE, FASTA_INPUT_DIR, FASTA_INPUT_FILE, FASTA_OUTPUT_FILE, ANALYSIS_TYPES, MIN_ORF_LENGTH, MAX_ORF_LENGTH
+from constants import ANALYSIS_ORF, CONFIG_FILE, FASTA_INPUT_FILE, FASTA_OUTPUT_FILE, ANALYSIS_TYPES, MIN_ORF_LENGTH, MAX_ORF_LENGTH
 from error_helper import exit_with_error
+from orf_analysis import analyze_orfs
 
 
 def main():
@@ -64,7 +65,7 @@ def main():
 
     try:
         if analysis == ANALYSIS_ORF:
-            print()
+            analyze_orfs(input_file, output_file, int(min_orf), int(max_orf))
 
     except Exception as e:
         exit_with_error("Error when running the analysis.", e)
