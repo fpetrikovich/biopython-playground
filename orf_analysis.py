@@ -17,13 +17,10 @@ def analyze_orfs(fasta_input_file, output_file, min_orf_len, max_orf_len):
             sequence = seq_record.seq
             reverse_sequence = sequence.reverse_complement()
 
-            for strand, seq in [("+", sequence), ("-", reverse_sequence)]:
+            for strand, seq in [(1, sequence), (-1, reverse_sequence)]:
                 for frame in range(0, 3):
-                     # Calculate where the reading frame starts and ends       
-                    start = frame
-                    end = math.floor((len(seq) - frame)/CODON_SIZE) * CODON_SIZE + frame
                     # Get the possible orfs of the frame
-                    frame_orfs = find_all_orfs_in_current_frame(seq[start:end], min_orf_len, max_orf_len)
+                    frame_orfs = find_all_orfs_in_current_frame(seq, frame, strand, min_orf_len, max_orf_len)
 
                     for orf in frame_orfs:
                         orf_counter += 1
@@ -32,8 +29,8 @@ def analyze_orfs(fasta_input_file, output_file, min_orf_len, max_orf_len):
               
                         orf_record = SeqRecord(
                             seq=protein_sequence,
-                            id= '%s_ORF_%i' % (seq_record.id, orf_counter),
-                            description='|Len[%i - %i]|Frame %i|Strand %s|' % (orf["start"], orf["end"], frame, strand),
+                            id= '%s_ORF%i' % (seq_record.id, orf_counter),
+                            description='|Len[%i - %i]|Frame %i|Strand %s|' % (orf["start"] + 1, orf["end"] + 1, frame + 1, ("+" if strand == 1 else "-")),
                         )
 
                         # write to file
@@ -41,7 +38,7 @@ def analyze_orfs(fasta_input_file, output_file, min_orf_len, max_orf_len):
     
 
     
-def find_all_orfs_in_current_frame(nucleotides, min_orf_len, max_orf_len):
+def find_all_orfs_in_current_frame(seq, frame, strand, min_orf_len, max_orf_len):
     """
     Finds all posible ORFs in the current reading frame by checking start and stop codons. 
     Start codon: ATG
@@ -51,29 +48,34 @@ def find_all_orfs_in_current_frame(nucleotides, min_orf_len, max_orf_len):
     Returns: array of substring of nucleotides between start and stop codons.
     """
 
-    start_indexes = []
+    # Calculate where the reading frame starts and ends       
+    start = frame
+    end = math.floor((len(seq) - frame)/CODON_SIZE) * CODON_SIZE + frame
+    nucleotides = seq[start:end]
+
+    base_idx = 0 if strand == 1 else len(seq)-1
+    
     orfs_list = []
     inside_orf = False
     
-    for i in range(0, len(nucleotides), CODON_SIZE):
+    for i in range(0, len(nucleotides[start:end]), CODON_SIZE):
         codon = str(nucleotides[i:i+CODON_SIZE])
         
-        if codon == START_CODON:
+        if not inside_orf and codon == START_CODON:
             inside_orf = True
-            start_indexes.append(i)
+            start_idx = i
 
         elif inside_orf and codon in END_CODONS:
             inside_orf = False
-            for start_idx in start_indexes:
-                orf_len = i - start_idx
-                if min_orf_len <= orf_len and orf_len <= max_orf_len:
-                    orfs_list.append({
-                        "seq": nucleotides[start_idx:i],
-                        "start": start_idx,
-                        "end": i
-                    })
-            # Clear the list of start indexes
-            start_indexes = []
+            end_idx = i + CODON_SIZE
+
+            orf_len = end_idx - start_idx
+            if min_orf_len <= orf_len and orf_len <= max_orf_len:
+                orfs_list.append({
+                    "seq": nucleotides[start_idx:end_idx],
+                    "start": base_idx + strand * (start_idx + frame),
+                    "end": base_idx + strand * ((end_idx - 1) + frame)
+                })
 
     return orfs_list 
 
