@@ -7,9 +7,12 @@ START_CODON = "ATG"
 END_CODONS = ["TAA", "TAG", "TGA"]
 
 def analyze_orfs(fasta_input_file, output_file, min_orf_len, max_orf_len):
+
+    orf_records = []
     
-    with open(output_file, 'w') as orf_handle:
-        for seq_record in SeqIO.parse(fasta_input_file, "fasta"):
+    # Open the input and output to create the handles
+    with open(fasta_input_file, 'r') as input_file, open(output_file, 'w') as orf_handle:
+        for seq_record in SeqIO.parse(input_file, "fasta"):
             print('Working with Fasta sequence record %s' % seq_record.id)
 
             orf_counter = 0
@@ -27,54 +30,65 @@ def analyze_orfs(fasta_input_file, output_file, min_orf_len, max_orf_len):
                         # translate sequence to protein for a given ORF
                         protein_sequence = orf["seq"].translate(to_stop=True)
               
-                        orf_record = SeqRecord(
+                        orf_records.append(SeqRecord(
                             seq=protein_sequence,
                             id= '%s_ORF%i' % (seq_record.id, orf_counter),
-                            description='|Len[%i - %i]|Frame %i|Strand %s|' % (orf["start"] + 1, orf["end"] + 1, frame + 1, ("+" if strand == 1 else "-")),
-                        )
+                            description='|Frame %i|Strand %s|Pos[%i - %i]|Nt Len %i|AA Len %i|' % (frame + 1, ("+" if strand == 1 else "-"), orf["start"] + 1, orf["end"] + 1, orf["len"], len(protein_sequence)),
+                        ))
 
-                        # write to file
-                        SeqIO.write(orf_record, orf_handle, 'fasta')
+        # write to file
+        SeqIO.write(orf_records, orf_handle, 'fasta')
     
 
     
 def find_all_orfs_in_current_frame(seq, frame, strand, min_orf_len, max_orf_len):
     """
-    Finds all posible ORFs in the current reading frame by checking start and stop codons. 
-    Start codon: ATG
-    Stop codons: TAA, TAG y TGA
+    Finds all possible ORFs in the current reading frame by checking start and stop codons. 
     Arguments: 
-        nucleotides: string with ARNm nucleotides already transcribed
-    Returns: array of substring of nucleotides between start and stop codons.
+        seq: the complete nucleotide sequence 
+        frame: the frame we are analyzing, either 0, 1 or 2
+        strand: identification of which DNA strand we are analyzing, positive (1) or negative (-1)
+        min_orf_len: minimum length an ORF must have to be considered.
+        max_orf_len: maximum length an ORF must have to be considered.
+    Returns: list of subsequences of nucleotides between start and stop codons (ORFs).
     """
 
-    # Calculate where the reading frame starts and ends       
-    start = frame
+    # Calculate where the reading frame starts and ends. Must be a multiple of 3.        
+    start = frame 
     end = math.floor((len(seq) - frame)/CODON_SIZE) * CODON_SIZE + frame
     nucleotides = seq[start:end]
 
     base_idx = 0 if strand == 1 else len(seq)-1
     
+    # Where the ORFs sequences will be stored
     orfs_list = []
+
+    # Boolean indicating if a start codon was found => inside an ORF
     inside_orf = False
     
-    for i in range(0, len(nucleotides[start:end]), CODON_SIZE):
+    # Loop through the sequence in steps of 3 (codon size)
+    for i in range(0, len(nucleotides), CODON_SIZE):
         codon = str(nucleotides[i:i+CODON_SIZE])
         
+        # Start of an ORF
         if not inside_orf and codon == START_CODON:
             inside_orf = True
-            start_idx = i
+            orf_start_idx = i
 
+        # End of an ORF
         elif inside_orf and codon in END_CODONS:
             inside_orf = False
-            end_idx = i + CODON_SIZE
+            orf_end_idx = i + CODON_SIZE
+            orf_len = orf_end_idx - orf_start_idx
 
-            orf_len = end_idx - start_idx
+            # Check if the ORF length is inside the limits
             if min_orf_len <= orf_len and orf_len <= max_orf_len:
+                # Save the ORF to the list
                 orfs_list.append({
-                    "seq": nucleotides[start_idx:end_idx],
-                    "start": base_idx + strand * (start_idx + frame),
-                    "end": base_idx + strand * ((end_idx - 1) + frame)
+                    "seq": nucleotides[orf_start_idx:orf_end_idx],
+                    "start": base_idx + strand * (orf_start_idx + frame),
+                    "end": base_idx + strand * ((orf_end_idx - 1) + frame),
+                    "len": orf_len
                 })
 
     return orfs_list 
